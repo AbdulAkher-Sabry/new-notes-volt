@@ -1,0 +1,29 @@
+{
+  "name": "app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AbdulAkher-Sabry/new-notes-volt.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/AbdulAkher-Sabry/new-notes-volt/issues"
+  },
+  "homepage": "https://github.com/AbdulAkher-Sabry/new-notes-volt#readme",
+  "dependencies": {
+    "quill": "^2.0.3"
+  },
+  "devDependencies": {
+    "jsdom": "^29.1.1",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.3"
+  }
+}
