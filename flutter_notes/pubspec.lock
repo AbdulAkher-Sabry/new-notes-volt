@@ -99,17 +99,7 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.1.0"
-  matcher:
-    dependency: transitive
-    description:
-      name: matcher
  
-      sha256: "12956d0ad8390bbcc63ca2e1469c0619946ccb52809807067a7020d57e647aa6"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.12.18"
-
-      
   matcher:
     dependency: transitive
     description:
