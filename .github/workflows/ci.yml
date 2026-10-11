@@ -17,28 +17,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
-    name: Format, analyze, test, and build Flutter Web
+  flutter-ci:
+    name: flutter-ci
     runs-on: ubuntu-latest
     timeout-minutes: 30
+
+    defaults:
+      run:
+        working-directory: flutter_notes
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-
-      - name: Require Flutter project at repository root
-        shell: bash
-        run: |
-          if [ ! -f pubspec.yaml ]; then
-            echo "::error::Flutter project is missing at the repository root. The repository still needs to be migrated before Flutter CI can pass."
-            exit 1
-          fi
 
       - name: Set up Flutter (stable)
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
+          cache-dependency-path: flutter_notes/pubspec.lock
 
       - name: Install dependencies
         run: flutter pub get
