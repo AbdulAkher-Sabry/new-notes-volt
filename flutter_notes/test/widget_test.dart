@@ -23,6 +23,11 @@ void main() {
     expect(find.text('Edit Note'), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
 
+    // Verify RTL configuration for EditorScreen
+    final TextField textField = tester.widget(find.byType(TextField));
+    expect(textField.textDirection, TextDirection.rtl);
+    expect(textField.textAlign, TextAlign.start);
+
     // Tap the back button to return to the list screen.
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle(); // Wait for back navigation animation
