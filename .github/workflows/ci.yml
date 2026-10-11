@@ -1,12 +1,17 @@
+
 name: Flutter CI
 
 on:
   push:
     branches:
       - "**"
+
+
   pull_request:
     branches:
       - "**"
+
+
   workflow_dispatch:
 
 permissions:
@@ -39,7 +44,6 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
-
       - name: Verify Dart formatting
         run: dart format --output=none --set-exit-if-changed .
 
