@@ -23,7 +23,7 @@ void main() {
     expect(find.text('Edit Note'), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
 
-    feat/flutter-prototype-9881342369419984253
+    
     // Verify RTL configuration for EditorScreen
     final TextField textField = tester.widget(find.byType(TextField));
     expect(textField.textDirection, TextDirection.rtl);
