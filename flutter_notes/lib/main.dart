@@ -53,6 +53,8 @@ class EditorScreen extends StatelessWidget {
         child: TextField(
           maxLines: null,
           expands: true,
+          textDirection: TextDirection.rtl,
+          textAlign: TextAlign.start,
           decoration: InputDecoration(
             hintText: 'Start typing your note here...',
             border: InputBorder.none,
