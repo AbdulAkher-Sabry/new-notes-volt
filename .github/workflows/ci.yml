@@ -1,27 +1,47 @@
 
-name: Flutter CI
+name: CI
 
 on:
   push:
     branches:
       - "**"
-
   pull_request:
     branches:
       - "**"
-
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: flutter-ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  node-ci:
+    name: Node.js CI
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install Node.js dependencies
+        run: npm ci
+
+      - name: Run Node.js tests
+        run: npm test
+
   flutter-ci:
-    name: flutter-ci
+    name: Flutter CI
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -33,23 +53,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Flutter
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
           cache-dependency-path: flutter_notes/pubspec.lock
 
-      - name: Install dependencies
+      - name: Install Flutter dependencies
         run: flutter pub get
 
-      - name: Check Dart formatting
+      - name: Verify Dart formatting
         run: dart format --output=none --set-exit-if-changed .
 
-      - name: Analyze Flutter code
+      - name: Run Flutter static analysis
         run: flutter analyze
 
-      - name: Run tests
+      - name: Run Flutter tests
         run: flutter test
 
       - name: Build Flutter Web
