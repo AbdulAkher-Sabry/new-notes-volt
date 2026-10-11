@@ -39,6 +39,343 @@ void main() {
     });
   });
 
+  group('BidiTextEditingController unit and widget tests', () {
+    testWidgets('buildTextSpan attaches RLM and LRM prefixes per line', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) {
+                final controller = BidiTextEditingController(
+                  text: 'English line 1\nمرحبا line 2\nEnglish line 3',
+                );
+                final span = controller.buildTextSpan(
+                  context: context,
+                  style: null,
+                  withComposing: false,
+                );
+
+                expect(span.children, isNotNull);
+                expect(
+                  span.children!.length,
+                  equals(5),
+                ); // 3 line spans + 2 newlines
+
+                final span1 = span.children![0] as TextSpan;
+                final newline1 = span.children![1] as TextSpan;
+                final span2 = span.children![2] as TextSpan;
+                final newline2 = span.children![3] as TextSpan;
+                final span3 = span.children![4] as TextSpan;
+
+                expect(span1.text, equals('\u200EEnglish line 1'));
+                expect(newline1.text, equals('\n'));
+                expect(span2.text, equals('\u200Fمرحبا line 2'));
+                expect(newline2.text, equals('\n'));
+                expect(span3.text, equals('\u200EEnglish line 3'));
+
+                return Container();
+              },
+            ),
+          ),
+        ),
+      );
+    });
+
+    testWidgets('Independent layout direction per paragraph', (
+      WidgetTester tester,
+    ) async {
+      final controller = BidiTextEditingController(
+        text: 'English paragraph\nمرحبا بالعالم\nAnother English paragraph',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DynamicDirectionTextField(
+              controller: controller,
+              maxLines: null,
+            ),
+          ),
+        ),
+      );
+
+      final editableFinder = find.byType(EditableText);
+      expect(editableFinder, findsOneWidget);
+      final EditableTextState state = tester.state(editableFinder);
+      final renderEditable = state.renderEditable;
+
+      // Line 1 ('E' at offset 0): LTR start
+      final p1 = renderEditable
+          .getEndpointsForSelection(const TextSelection.collapsed(offset: 0))
+          .first
+          .point;
+
+      // Line 2 ('م' at offset 18): RTL start
+      final p2 = renderEditable
+          .getEndpointsForSelection(const TextSelection.collapsed(offset: 18))
+          .first
+          .point;
+
+      // Line 3 ('A' at offset 31): LTR start
+      final p3 = renderEditable
+          .getEndpointsForSelection(const TextSelection.collapsed(offset: 31))
+          .first
+          .point;
+
+      expect(p1.dx, lessThan(p2.dx));
+      expect(p3.dx, lessThan(p2.dx));
+    });
+
+    testWidgets('English -> Enter -> Arabic scenario', (
+      WidgetTester tester,
+    ) async {
+      final controller = BidiTextEditingController();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DynamicDirectionTextField(
+              controller: controller,
+              maxLines: null,
+            ),
+          ),
+        ),
+      );
+
+      // Type English -> Enter -> Arabic
+      await tester.enterText(
+        find.byType(TextField),
+        'First line in English\nمرحبا بالعالم',
+      );
+      await tester.pumpAndSettle();
+
+      final EditableTextState state = tester.state(find.byType(EditableText));
+      final renderEditable = state.renderEditable;
+
+      final p1 = renderEditable
+          .getEndpointsForSelection(const TextSelection.collapsed(offset: 0))
+          .first
+          .point;
+      final p2 = renderEditable
+          .getEndpointsForSelection(const TextSelection.collapsed(offset: 22))
+          .first
+          .point;
+
+      expect(p1.dx, lessThan(p2.dx));
+    });
+
+    testWidgets('Arabic -> Enter -> English scenario', (
+      WidgetTester tester,
+    ) async {
+      final controller = BidiTextEditingController();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DynamicDirectionTextField(
+              controller: controller,
+              maxLines: null,
+            ),
+          ),
+        ),
+      );
+
+      // Type Arabic -> Enter -> English
+      await tester.enterText(
+        find.byType(TextField),
+        'فقرة باللغة العربية\nSecond paragraph in English',
+      );
+      await tester.pumpAndSettle();
+
+      final EditableTextState state = tester.state(find.byType(EditableText));
+      final renderEditable = state.renderEditable;
+
+      final p1 = renderEditable
+          .getEndpointsForSelection(const TextSelection.collapsed(offset: 0))
+          .first
+          .point;
+      final p2 = renderEditable
+          .getEndpointsForSelection(const TextSelection.collapsed(offset: 20))
+          .first
+          .point;
+
+      expect(p1.dx, greaterThan(p2.dx));
+    });
+
+    testWidgets('Empty paragraph between different directions', (
+      WidgetTester tester,
+    ) async {
+      final controller = BidiTextEditingController(text: 'مرحبا\n\nHello');
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DynamicDirectionTextField(
+              controller: controller,
+              maxLines: null,
+            ),
+          ),
+        ),
+      );
+
+      final span = controller.buildTextSpan(
+        context: tester.element(find.byType(TextField)),
+        style: null,
+        withComposing: false,
+      );
+
+      expect(span.children, isNotNull);
+      expect(span.children!.length, equals(5));
+
+      final spanLine1 = span.children![0] as TextSpan; // 'مرحبا'
+      final spanEmpty = span.children![2] as TextSpan; // '' (empty line)
+      final spanLine3 = span.children![4] as TextSpan; // 'Hello'
+
+      // Verify line 1 and empty line 2 have RTL prefix (\u200F), line 3 has LTR prefix (\u200E)
+      expect(spanLine1.text, startsWith('\u200F'));
+      expect(spanEmpty.text, equals('\u200F'));
+      expect(spanLine3.text, startsWith('\u200E'));
+    });
+
+    testWidgets(
+      'Paragraph beginning with numbers or punctuation followed by Arabic/English',
+      (WidgetTester tester) async {
+        final controller = BidiTextEditingController(
+          text: '123! #123 مرحبا\n123! #123 Hello',
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: DynamicDirectionTextField(
+                controller: controller,
+                maxLines: null,
+              ),
+            ),
+          ),
+        );
+
+        final EditableTextState state = tester.state(find.byType(EditableText));
+        final renderEditable = state.renderEditable;
+
+        final p1 = renderEditable
+            .getEndpointsForSelection(const TextSelection.collapsed(offset: 0))
+            .first
+            .point;
+        final p2 = renderEditable
+            .getEndpointsForSelection(const TextSelection.collapsed(offset: 16))
+            .first
+            .point;
+
+        expect(p1.dx, greaterThan(p2.dx));
+      },
+    );
+
+    testWidgets('Editing in middle, inserting and deleting newlines', (
+      WidgetTester tester,
+    ) async {
+      final controller = BidiTextEditingController(text: 'Hello\nمرحبا');
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DynamicDirectionTextField(
+              controller: controller,
+              maxLines: null,
+            ),
+          ),
+        ),
+      );
+
+      // Insert text in the middle of line 1
+      controller.value = const TextEditingValue(
+        text: 'Hello World\nمرحبا',
+        selection: TextSelection.collapsed(offset: 11),
+      );
+      await tester.pumpAndSettle();
+      expect(controller.text, equals('Hello World\nمرحبا'));
+
+      // Delete newline
+      controller.value = const TextEditingValue(
+        text: 'Hello World مرحبا',
+        selection: TextSelection.collapsed(offset: 11),
+      );
+      await tester.pumpAndSettle();
+      expect(controller.text, equals('Hello World مرحبا'));
+
+      // Re-insert newline
+      controller.value = const TextEditingValue(
+        text: 'Hello World\nمرحبا',
+        selection: TextSelection.collapsed(offset: 12),
+      );
+      await tester.pumpAndSettle();
+      expect(controller.text, equals('Hello World\nمرحبا'));
+    });
+
+    testWidgets('Cursor movement and selection across paragraph boundaries', (
+      WidgetTester tester,
+    ) async {
+      final controller = BidiTextEditingController(text: 'Hello\nمرحبا');
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DynamicDirectionTextField(
+              controller: controller,
+              maxLines: null,
+            ),
+          ),
+        ),
+      );
+
+      // Select across paragraph boundary
+      controller.selection = const TextSelection(
+        baseOffset: 2,
+        extentOffset: 8,
+      );
+      await tester.pumpAndSettle();
+
+      expect(controller.selection.baseOffset, equals(2));
+      expect(controller.selection.extentOffset, equals(8));
+      expect(controller.text.substring(2, 8), equals('llo\nمر'));
+    });
+
+    testWidgets('Pasting multiline mixed-direction text', (
+      WidgetTester tester,
+    ) async {
+      final controller = BidiTextEditingController();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DynamicDirectionTextField(
+              controller: controller,
+              maxLines: null,
+            ),
+          ),
+        ),
+      );
+
+      const pastedText = 'Line 1 English\nالسطر الثاني عربي\nLine 3 English';
+      await tester.enterText(find.byType(TextField), pastedText);
+      await tester.pumpAndSettle();
+
+      final EditableTextState state = tester.state(find.byType(EditableText));
+      final renderEditable = state.renderEditable;
+
+      final p1 = renderEditable
+          .getEndpointsForSelection(const TextSelection.collapsed(offset: 0))
+          .first
+          .point;
+      final p2 = renderEditable
+          .getEndpointsForSelection(const TextSelection.collapsed(offset: 15))
+          .first
+          .point;
+      final p3 = renderEditable
+          .getEndpointsForSelection(const TextSelection.collapsed(offset: 33))
+          .first
+          .point;
+
+      expect(p1.dx, lessThan(p2.dx));
+      expect(p3.dx, lessThan(p2.dx));
+    });
+  });
+
   group('Notes App Widget Tests', () {
     testWidgets('Notes prototype navigation test', (WidgetTester tester) async {
       await tester.pumpWidget(const NotesApp());

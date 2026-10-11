@@ -30,6 +30,48 @@ TextDirection? detectTextDirection(String text, [TextDirection? fallback]) {
   return fallback;
 }
 
+/// A [TextEditingController] that dynamically decorates each paragraph/line with
+/// directional Unicode formatting marks (RLM `\u200F` / LRM `\u200E`) based on
+/// each paragraph's detected text direction.
+/// This enables independent RTL/LTR direction per paragraph in multi-line text fields
+/// without mutating the raw underlying string content or selection indices.
+class BidiTextEditingController extends TextEditingController {
+  BidiTextEditingController({super.text});
+
+  @override
+  TextSpan buildTextSpan({
+    required BuildContext context,
+    TextStyle? style,
+    bool? withComposing,
+  }) {
+    final defaultDir = Directionality.maybeOf(context) ?? TextDirection.ltr;
+    final lines = text.split('\n');
+    final children = <InlineSpan>[];
+
+    TextDirection? lastKnownDirection;
+
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      TextDirection? lineDir = detectTextDirection(line);
+
+      if (lineDir != null) {
+        lastKnownDirection = lineDir;
+      } else {
+        lineDir = lastKnownDirection ?? detectTextDirection(text, defaultDir);
+      }
+
+      final String prefix = lineDir == TextDirection.rtl ? '\u200F' : '\u200E';
+
+      children.add(TextSpan(text: prefix + line));
+      if (i < lines.length - 1) {
+        children.add(const TextSpan(text: '\n'));
+      }
+    }
+
+    return TextSpan(style: style, children: children);
+  }
+}
+
 /// A [TextField] wrapper that automatically determines text direction based on content,
 /// falling back to the ambient UI [Directionality].
 class DynamicDirectionTextField extends StatefulWidget {
@@ -80,7 +122,7 @@ class _DynamicDirectionTextFieldState extends State<DynamicDirectionTextField> {
     if (widget.controller != null) {
       _controller = widget.controller!;
     } else {
-      _controller = TextEditingController();
+      _controller = BidiTextEditingController();
       _internalController = true;
     }
     _controller.addListener(_onTextChanged);
@@ -99,7 +141,7 @@ class _DynamicDirectionTextFieldState extends State<DynamicDirectionTextField> {
       if (widget.controller != null) {
         _controller = widget.controller!;
       } else {
-        _controller = TextEditingController();
+        _controller = BidiTextEditingController();
         _internalController = true;
       }
       _controller.addListener(_onTextChanged);
@@ -177,8 +219,14 @@ class NotesListScreen extends StatefulWidget {
 }
 
 class _NotesListScreenState extends State<NotesListScreen> {
-  final TextEditingController _searchController = TextEditingController();
+  late final TextEditingController _searchController;
   bool _isSearching = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = BidiTextEditingController();
+  }
 
   @override
   void dispose() {
@@ -265,8 +313,15 @@ class EditorScreen extends StatefulWidget {
 }
 
 class _EditorScreenState extends State<EditorScreen> {
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _bodyController = TextEditingController();
+  late final TextEditingController _titleController;
+  late final TextEditingController _bodyController;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = BidiTextEditingController();
+    _bodyController = BidiTextEditingController();
+  }
 
   @override
   void dispose() {
